@@ -146,7 +146,7 @@ def get_plasim_output():
     lat_grid = data.variables['lat'][:]
     lng_grid = data.variables['lon'][:]
     T_grid4d = data.variables['ta'][:]
-    H2O_grid4d = np.random.normal(0,1,T_grid4d.shape)
+    H2O_grid4d = data.variables['hus'][:]
     Psurf_grid3d = data.variables['ps'][:]
     return T_grid4d, H2O_grid4d, Psurf_grid3d, \
         t_grid, P_grid, lat_grid, lng_grid
@@ -157,7 +157,4 @@ def _get_cell_mass(P_grid4d, Psurf_grid3d):
     dP = np.diff(P_grid4d_wPsurf, axis=1)
     g = G*Mp/Rp**2
     return dP/g
-    
 
-#dP/g to get vertically in mass in the cell
-#P, T is given at the middle of the cell

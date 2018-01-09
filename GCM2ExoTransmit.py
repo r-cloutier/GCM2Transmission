@@ -1,40 +1,85 @@
 from imports import *
 import rvs
-import create_EOS as eos
+import create_exotransmit as exo
 
 global mp, kb, rp, g
 mp, kb = 1.6726219e-27, 1.38064852e-23
-rp, g = rvs.Rearth2m(1), 9.8
+rp, g = 1., 9.8
 
 
-def main():
+def main(t=39):
     '''
-    Compute the transmission spectrum from a GCM output file.
+    Compute the transmission spectrum from a GCM by setting up and running 
+    ExoTransmit for each vertical atmospheric column in the GCM and combining 
+    them using a weighted-mean.
+
+    Parameters
+    ----------
+    `t': scalar
+        Time in GCM units at which to compute the transmission spectrum
     '''
-    # get data
+    # get GCM data
+    time, lon, lat, _, Ps, P, T,_ = _get_GCM_data(
+        'plasim_samples/TIDAL1.0.001.nc')
+    if t not in time:
+        raise ValueError('t not in GCM time array.')
+
+    # compute atmospheric depth
+    depth = _P2h(P, Ps, T)
+
+    # setup and run exotransit from each vertical column
+    _,_, Nlat, Nlon = T.shape
+    for i in range(Nlat):
+        for j in range(Nlon):
+            
+            # check that transmission occurs through this column
+            if _is_transmission(lat[i], lon[j], depth[time==t,:,i,j].max()):
+
+                run_exotransmit(t, lat[i], lon[j],
+                                outfile='output_%i_%i.dat'%(i,j))
+
+    # compute the mass-coefficient map
+
+    # compute the master transmission spectrum
+
+
+
+def run_exotransmit(t, latitude, longitude, outfile='default.dat'):
+    '''
+    Setup ExoTransmit files and compute the transmission spectrum for a single 
+    vertical column from the GCM.
+
+    Parameters
+    ----------
+    `t': scalar
+        Time in GCM units at which to compute the transmission spectrum
+    `latitude': scalar
+        Latitude of the vertical column in degrees from the equator
+    `longitude': scalar
+        Longitude of the vertical column in degrees from the substellar point
+
+    '''
+    # get GCM data
     time, lon, lat, h, Ps, P, T, X_H2O = _get_GCM_data(
         'plasim_samples/TIDAL1.0.001.nc')
-    Ntime, NP, Nlat, Nlon = T.shape
+    Ntime, Nh, Nlat, Nlon = T.shape
 
-    # initialize interpolation functions
-    Pint, Tint, Xint = _create_interpolators(time, h, lon, lat, P, T, X_H2O)
+    # create exotransmit EOS file for this column
+    tindex    = time == t
+    lattindex = lat == latitude
+    lonindex  = lon == longitude    
+    _write_EOS_file(P, T[tindex,:,latindex,lonindex],
+                    X_H2O[tindex,:,latindex,lonindex])
+
+    # create exotransmit TP profile for this column
+    _write_TP_file(P, T[tindex,:,latindex,longindex])
+
+    # create_ exotransmit input files
+    _write_input_file()
+    _write_chem_file()
     
-    # compute mass weighted spectrum for each cell along each light ray
-    ##nrays = Nlon * NP
-    x_ray = np.linspace(+rp+h.max(), -rp-h.max(), Nlat)
-    R_rays, Theta_rays = np.linspace(rp, rp+h.max(), NP), \
-                         np.arange(0, 2*np.pi, 2*np.pi/Nlon) # in cross-section
-    for i in range(NP):
-        for j in range(Nlon):
-
-            y_ray, z_ray = _sphere2cart2D(R_rays[i], Theta_rays[j])
-
-            h_ray, lon_ray, lat_ray = _cart2geo3D(x_ray, y_ray, z_ray)
-
-            for k in range(h_ray.size):
-                _write_EOS_file(Pint, Tint, Xint, h_ray, lon_ray, lat_ray)
-                ##_run_ExoTransmit()
-                
+    # run exotransmit
+    
             
 
 def _get_GCM_data(fname):
@@ -46,14 +91,34 @@ def _get_GCM_data(fname):
     time, lon, lat, lev = data['time'][:], data['lon'][:], data['lat'][:], \
                           data['lev'][:]
     T, Ps, X_H2O = data['ta'][:], data['ps'][:], data['hus'][:]
-    P, Ps = lev*10, Ps*10
+    P, Ps = lev*10, Ps*10  # hPa to Pa 
     h = _P2h(P, Ps, T)
     return time, lon, lat, h, Ps, P, T, X_H2O
 
 
+def _is_transmission(lat, lon, H):
+    '''
+    Check that transmission occurs at least partially through a vertical column 
+    with a specificied latitude and longitude.
+
+    Parameters
+    ----------
+    `lat': scalar
+        Latitude of the vertical column in degrees from the equator
+    `lon': scalar
+         Longitude of the vertical column in degrees from the substellar point
+    `H': scalar
+        Height of the GCM atmosphere in Earth radii
+
+    '''
+    phi, theta = _geo2sphere(lat, lon)
+    y, z = _sphere2yz(rp+H, phi, theta)
+    return np.sqrt(y*y + z*z) > rp
+    
+    
 def _P2h(P, Ps, T, mu=28.97):
     '''
-    Convert the atmospheric pressure to a depth.
+    Convert the atmospheric pressure to a depth in Earth radii.
 
     Parameters
     ----------
@@ -74,7 +139,16 @@ def _P2h(P, Ps, T, mu=28.97):
 
     # compute depth vs pressure
     H = kb*T / (g*mu*mp)
-    return H * np.log(Ps4 / P4)
+    return rvs.m2Rearth(H * np.log(Ps4 / P4))
+
+
+def _geo2sphere(lat, lon):
+    '''
+    Convert latitude and lonitude into spherical angles.
+    '''
+    phi = np.deg2rad(lon)
+    theta = np.deg2rad(90. - lat)
+    return phi, theta
 
 
 def _sphere2cart2D(r, theta):
@@ -83,6 +157,14 @@ def _sphere2cart2D(r, theta):
     '''
     x, y = r*np.cos(theta), r*np.sin(theta)
     return x, y 
+
+
+def _sphere2yz(r, phi, theta):
+    '''
+    Convert radial/azimuthal coordinates to cartesian x,y.
+    '''
+    y, z = r*np.sin(theta)*np.sin(phi), r*np.cos(theta)
+    return y, z
 
 
 def _cart2geo3D(x, y, z):
@@ -136,27 +218,19 @@ def _create_interpolators(time, h, lon, lat, P, T, X_H2O):
     return Pint, Tint, Xint
 
 
-def _write_EOS_file(Pint, Tint, Xint, h_ray, lon_ray, lat_ray, time_ray=0):
+def _write_EOS_file(P, T, X):
     '''
-    Write the ExoTransmit EOS file based on the GCM output and the ray path.
+    Write the ExoTransmit EOS file for this column.
     '''
-    # get GCM output along the ray
-    P_ray = Pint(time_ray, h_ray, lat_ray, lon_ray)
-    T_ray = Tint(time_ray, h_ray, lat_ray, lon_ray)
-    X_ray = Xint(time_ray, h_ray, lat_ray, lon_ray)
-    
-    # write EOS file
-    eos.setup_Earthlike_EOS(P_ray, T_ray, X_ray)
+    assert P.size == T.size
+    assert T.size == X.size
+    exo.setup_Earthlike_EOS(P, T, X)
                     
-    
-    
-#def _combine_P_Ps(P, Ps):
-#    '''
-#    Create full 4D array of pressures including the surface pressure by 
-#    appending it.
-#    '''
-#    Ntime, Nlat, Nlon = Ps.shape
-#    P4 = np.repeat(np.repeat(np.repeat(P[np.newaxis,:], Ntime,
-#                                       axis=0)[:,:,np.newaxis], Nlat,
-#                             axis=2)[:,:,:,np.newaxis], Nlon, axis=3)
-#    return np.insert(P4[:,::-1], 0, Ps, axis=1)[:,::-1]
+
+def _write_TP_file(P, T):
+    '''
+    Write the ExoTransmit TP file for this column.
+    '''
+    assert P.size == T.size
+    exo.setup_TP_file(P, T)
+                    

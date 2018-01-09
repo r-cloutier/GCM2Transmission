@@ -2,9 +2,10 @@ from imports import *
 import rvs
 import create_exotransmit as exo
 
-global mp, kb, rp, g
+global mp, kb, rp, g, Rs
 mp, kb = 1.6726219e-27, 1.38064852e-23
 rp, g = 1., 9.8
+Rs = .2
 
 
 def main(t=39):
@@ -35,8 +36,10 @@ def main(t=39):
             # check that transmission occurs through this column
             if _is_transmission(lat[i], lon[j], depth[time==t,:,i,j].max()):
 
-                run_exotransmit(t, lat[i], lon[j],
-                                outfile='output_%i_%i.dat'%(i,j))
+                _setup_exotransmit(t, lat[i], lon[j],
+                                   outfile='output_%i_%i.dat'%(i,j))
+                clean = True if (i==0) & (j==0) else False
+                _run_exotransmit(clean)
 
     # compute the mass-coefficient map
 
@@ -44,9 +47,9 @@ def main(t=39):
 
 
 
-def run_exotransmit(t, latitude, longitude, outfile='default.dat'):
+def _setup_exotransmit(t, latitude, longitude, outfile='default.dat'):
     '''
-    Setup ExoTransmit files and compute the transmission spectrum for a single 
+    Setup ExoTransmit files to compute the transmission spectrum for a single 
     vertical column from the GCM.
 
     Parameters
@@ -67,20 +70,26 @@ def run_exotransmit(t, latitude, longitude, outfile='default.dat'):
     # create exotransmit EOS file for this column
     tindex    = time == t
     lattindex = lat == latitude
-    lonindex  = lon == longitude    
-    _write_EOS_file(P, T[tindex,:,latindex,lonindex],
-                    X_H2O[tindex,:,latindex,lonindex])
+    lonindex  = lon == longitude
+    exo.setup_Earthlike_EOS(P, X_H2O[tindex,:,latindex,lonindex])
 
     # create exotransmit TP profile for this column
-    _write_TP_file(P, T[tindex,:,latindex,longindex])
+    exo.setup_TP_file(P, T[tindex,:,latindex,longindex])
 
-    # create_ exotransmit input files
-    _write_input_file()
-    _write_chem_file()
+    # create exotransmit input files
+    exo.create_input_file(g, rp, Rs, outfile)
+    exo.create_chem_file()
+
     
-    # run exotransmit
-    
-            
+def _run_exotransmit(clean=False):
+    '''
+    Compute the transmission spectrum using ExoTransmit.
+    '''
+    if clean:
+        os.system('make clean')
+        os.system('make')
+    os.system('./Exo_Transmit')            
+
 
 def _get_GCM_data(fname):
     '''
@@ -99,7 +108,7 @@ def _get_GCM_data(fname):
 def _is_transmission(lat, lon, H):
     '''
     Check that transmission occurs at least partially through a vertical column 
-    with a specificied latitude and longitude.
+    with a specified latitude and longitude.
 
     Parameters
     ----------
@@ -216,21 +225,3 @@ def _create_interpolators(time, h, lon, lat, P, T, X_H2O):
     Xint = lint(points, X_H2O.reshape(Npnts))
 
     return Pint, Tint, Xint
-
-
-def _write_EOS_file(P, T, X):
-    '''
-    Write the ExoTransmit EOS file for this column.
-    '''
-    assert P.size == T.size
-    assert T.size == X.size
-    exo.setup_Earthlike_EOS(P, T, X)
-                    
-
-def _write_TP_file(P, T):
-    '''
-    Write the ExoTransmit TP file for this column.
-    '''
-    assert P.size == T.size
-    exo.setup_TP_file(P, T)
-                    

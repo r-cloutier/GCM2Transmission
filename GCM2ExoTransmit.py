@@ -18,6 +18,7 @@ def main(t=39):
     ----------
     `t': scalar
         Time in GCM units at which to compute the transmission spectrum
+
     '''
     # get GCM data
     time, lon, lat, _, Ps, P, T,_ = _get_GCM_data(
@@ -42,7 +43,8 @@ def main(t=39):
                 _run_exotransmit(clean)
 
     # compute the mass-coefficient map
-
+    coeffs = _get_masscoeff_grid(P, T[time == t])
+    
     # compute the master transmission spectrum
 
 
@@ -197,31 +199,36 @@ def _cart2sphere3D(x, y, z):
     return r, phi, theta
     
 
-def _create_interpolators(time, h, lon, lat, P, T, X_H2O):
+def _get_masscoeff_grid_FAIL(tindex, Ps, P):
     '''
-    Initialize interpolation functions to get P, T, and X_H2O.
-    ##Interpolate along the ray path to get GCM varaiables of interest. 
+    Compute the grid of dP/g (proportional to mass) and normalize to get the 
+    mass-weighted coefficients as a function of lat, lon, and depth.
     '''
-    # form grid of spatial and temporal points
-    Ntime, NP, Nlat, Nlon = T.shape
-    Npnts = np.product(T.shape)
-    points = np.zeros((Npnts, 4))
-    points[:,0] = np.ascontiguousarray(list(time) * NP * Nlat * Nlon)    
-    points[:,1] = h.reshape(Npnts)
-    points[:,2] = np.ascontiguousarray(list(lat) * Ntime * NP * Nlon)
-    points[:,3] = np.ascontiguousarray(list(lon) * Ntime * NP * Nlat)
-    
-    # interpolate to get pressures
-    P4 = np.repeat(np.repeat(np.repeat(P[np.newaxis,:], Ntime,
-                                       axis=0)[:,:,np.newaxis], Nlat,
-                             axis=2)[:,:,:,np.newaxis], Nlon, axis=3)
-    assert P4.shape == T.shape
-    Pint = lint(points, P4.reshape(Npnts))
-    
-    # interpolate to get temperatures
-    Tint = lint(points, T.reshape(Npnts))
+    Ntime, Nlat, Nlon = Ps.shape
+    NP = P.size
+    Pgrid3d = np.stack([np.stack([P for i in range(Nlat)], 0)
+                        for i in range(Nlon)], 0).T
+    Psgrid3d = np.stack([Ps[tindex] for i in range(NP)])
+    P = np.insert(Pgrid3d, 0, Psgrid3d, axis=1)
+    dP = np.diff(Pgrid, axis=0)
+    return dP/g
 
-    # interpolate to get specific humidity
-    Xint = lint(points, X_H2O.reshape(Npnts))
 
-    return Pint, Tint, Xint
+def _get_masscoeff_grid(P, T, tindex, Ps, lat):
+    '''
+    Compute the grid of unnormalized cell masses assuming an ideal gas and 
+    renormalizing to get the mass-weighted coefficients as a function of lat, 
+    lon, and depth.
+    '''
+    Ntime, Nh, Nlat, Nlon = T.shape
+    assert P.size == Nh
+    P3d = np.stack([np.stack([P for i in range(Nlat)], 0)
+                    for i in range(Nlon)], 0).T
+
+    # density modolo a constant
+    rho3d = P3d / T[tindex]
+
+    # integrate over shells to get shell cell masses
+    h3d = _P2h(P, Ps, T)[tindex] 
+    theta = np.deg2rad(90. - lat)
+    h3d**2 * np.sin(theta)

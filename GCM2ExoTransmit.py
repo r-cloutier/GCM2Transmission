@@ -214,7 +214,7 @@ def _get_masscoeff_grid_FAIL(tindex, Ps, P):
     return dP/g
 
 
-def _get_masscoeff_grid(P, T, tindex, Ps, lat):
+def _get_masscoeff_grid(P, Ps, T, tindex):
     '''
     Compute the grid of unnormalized cell masses assuming an ideal gas and 
     renormalizing to get the mass-weighted coefficients as a function of lat, 
@@ -225,10 +225,42 @@ def _get_masscoeff_grid(P, T, tindex, Ps, lat):
     P3d = np.stack([np.stack([P for i in range(Nlat)], 0)
                     for i in range(Nlon)], 0).T
 
-    # density modolo a constant
+    # compute cell masses modolo a constant
     rho3d = P3d / T[tindex]
+    depth = _P2h(P, Ps, T)[tindex]
+    x = 2*depth*np.tan(dlon/2.)
+    y = 2*depth*np.tan(dlat/2.)
+    z = np.diff(depth) #??
+    V3d = x*y*z
+    mass3d = rho3d * V3d
 
-    # integrate over shells to get shell cell masses
-    h3d = _P2h(P, Ps, T)[tindex] 
-    theta = np.deg2rad(90. - lat)
-    h3d**2 * np.sin(theta)
+
+def _compute_cell_volume(cell_bnds1, cell_bnds2, rp, H, N=1e5):
+    '''
+    Compute the approximate cell volume by drawing spherical coordinates 
+    within the planet's atmosphere (of known volume) and computing the fraction
+    of points that lie within the cell bounded by the specified depths, 
+    latitudes, and longitudes. 
+    '''    
+    # get atmosphere volume
+    V = 4*np.pi/3 * ((rp+H)**3 - rp**3)
+
+    # draw random locations in the atmosphere
+    N = int(N)
+    hs   = np.random.uniform(rp, rp+H, N)
+    lats = np.random.uniform(-90, 90, N)
+    lons = np.random.uniform(0, 360, N)
+
+    # read cell boundaries
+    h1, lat1, lon1 = cell_bnds1
+    h2, lat2, lon2 = cell_bnds2
+    hcell, latcell, loncell = np.append(h1,h2), np.append(lat1,lat2), \
+                              np.append(lon1,lon2)
+
+    # compute cell volume
+    incell = (hs >= hcell.min()) & (hs <= hcell.max()) & \
+             (lats >= latcell.min()) & (lats <= latcell.max()) & \
+             (lons >= loncell.min()) & (lons <= loncell.max())
+    Vcell = V * incell.sum() / incell.size
+    print 'fractional volume = %.6e'%(Vcell / V)
+    return Vcell

@@ -43,7 +43,7 @@ def main(t=39):
                 _run_exotransmit(clean)
 
     # compute the mass-coefficient map
-    coeffs = _get_masscoeff_grid(P, T[time == t])
+    coeffs = _get_masscoeff_grid(P, Ps, T, depth, lat, lon, time==t)
     
     # compute the master transmission spectrum
 
@@ -214,7 +214,7 @@ def _get_masscoeff_grid_FAIL(tindex, Ps, P):
     return dP/g
 
 
-def _get_masscoeff_grid(P, Ps, T, tindex):
+def _get_masscoeff_grid(P, Ps, T, depth, lat, lon, tindex, N=1e8):
     '''
     Compute the grid of unnormalized cell masses assuming an ideal gas and 
     renormalizing to get the mass-weighted coefficients as a function of lat, 
@@ -227,22 +227,43 @@ def _get_masscoeff_grid(P, Ps, T, tindex):
 
     # compute cell masses modolo a constant
     rho3d = P3d / T[tindex]
-    depth = _P2h(P, Ps, T)[tindex]
-    x = 2*depth*np.tan(dlon/2.)
-    y = 2*depth*np.tan(dlat/2.)
-    z = np.diff(depth) #??
-    V3d = x*y*z
+    V3d = _compute_cell_volumes(depth, lat, lon, N)
     mass3d = rho3d * V3d
 
+    # compute mass-weighted coefficients
+    coeffs = mass3d / mass3d.sum()
+    return coeffs
 
-def _compute_cell_volume(cell_bnds1, cell_bnds2, rp, H, N=1e5):
+
+def _compute_cell_volumes(depth, lat, lon, N=1e8):
+    '''
+    Compute the 3D spatial map of cell volumes.
+    '''
+    Nh, Nlat, Nlon = depth.shape
+    assert lat.size == Nlat
+    assert lon.size == Nlon
+
+    V3d = np.zeros((Nh-1, Nlat-1, Nlon-1))
+    for i in range(Nh-1):
+        for j in range(Nlat-1):
+            for k in range(Nlon-1):
+                print i,j,k
+                cell_bnds1 = depth[i,j,k], lat[j], lon[k]
+                cell_bnds2 = depth[i+1,j+1,k+1], lat[j+1], lon[k+1]       
+                V3d[i,j,k] = _compute_cell_V(cell_bnds1, cell_bnds2,
+                                             depth.max(), N)
+
+    return V3d
+
+
+def _compute_cell_V(cell_bnds1, cell_bnds2, H, N=1e8):
     '''
     Compute the approximate cell volume by drawing spherical coordinates 
     within the planet's atmosphere (of known volume) and computing the fraction
     of points that lie within the cell bounded by the specified depths, 
     latitudes, and longitudes. 
     '''    
-    # get atmosphere volume
+    # get total atmosphere volume
     V = 4*np.pi/3 * ((rp+H)**3 - rp**3)
 
     # draw random locations in the atmosphere
@@ -251,16 +272,15 @@ def _compute_cell_volume(cell_bnds1, cell_bnds2, rp, H, N=1e5):
     lats = np.random.uniform(-90, 90, N)
     lons = np.random.uniform(0, 360, N)
 
-    # read cell boundaries
+    # read boundaries of the cell whose volume is being measured
     h1, lat1, lon1 = cell_bnds1
     h2, lat2, lon2 = cell_bnds2
     hcell, latcell, loncell = np.append(h1,h2), np.append(lat1,lat2), \
                               np.append(lon1,lon2)
 
-    # compute cell volume
-    incell = (hs >= hcell.min()) & (hs <= hcell.max()) & \
-             (lats >= latcell.min()) & (lats <= latcell.max()) & \
-             (lons >= loncell.min()) & (lons <= loncell.max())
-    Vcell = V * incell.sum() / incell.size
-    print 'fractional volume = %.6e'%(Vcell / V)
+    # compute cell volume from fraction of draws within the cell
+    in_cell = (hs >= hcell.min()) & (hs <= hcell.max()) & \
+              (lats >= latcell.min()) & (lats <= latcell.max()) & \
+              (lons >= loncell.min()) & (lons <= loncell.max())
+    Vcell = V * in_cell.sum() / in_cell.size
     return Vcell

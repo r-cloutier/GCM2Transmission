@@ -317,7 +317,6 @@ def _compute_cell_volumes(depth, lat, lon, tindex, N=1e7):
 
     V3d = np.zeros((Nh-1, Nlat-1, Nlon-1))
     for i in range(Nh-1):
-        print i / (Nh-1.)
         for j in range(Nlat-1):
             for k in range(Nlon-1):
                 cell_bnds1 = depth[tindex,i,j,k], lat[j], lon[k]

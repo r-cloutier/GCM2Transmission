@@ -32,7 +32,6 @@ def setup_Earthlike_EOS(Parr, X_H2Oarr):
             # add fixed chemical abundances
             Xs = np.ascontiguousarray(g[j].split('\t')[:-1])
             Xs = _set_abundances(Xs, col_names, Parr, X_H2Oarr)
-            print Xs[2:].sum()
             if not np.isclose(Xs[2:].sum(), 1, 1e-5):
                 raise ValueError("Cumulative atmospheric abundances "+ \
                                  "exceed 1.")

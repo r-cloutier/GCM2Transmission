@@ -10,7 +10,7 @@ path2plasim = '/Users/ryancloutier/Research/PlaSim'
 prefix = 'output'
 
 
-def main(t=39):
+def main(t=39, outname='GCMtidallylocked'):
     '''
     Compute the transmission spectrum from a GCM by setting up and running 
     ExoTransmit for each vertical atmospheric column in the GCM and combining 
@@ -57,8 +57,11 @@ def main(t=39):
     # compute the master transmission spectrum
     # ie: send rays at fixed (y,z) and add up the mass weighted transmission
     # spectra
-    ##wl, spectrum = _coadd_spectra(coeffs)
-    ##return wl, spectrum
+    wl, spectrum, hdr = _coadd_spectra(coeffs)
+    np.savetxt('%s/Spectra/%s'%(path2exotransmit, outname),
+               np.array([wl, spectrum]).T, fmt='%.6e', delimiter='\t',
+               header=hdr)
+
     
 
 def _setup_exotransmit(tindex, latindex, lonindex, outfile='default.dat'):
@@ -375,5 +378,11 @@ def _coadd_spectra(coeffs):
                 spectrum += coeffs[i,j] * spec
             except IOError:
                 pass
-
-    return spectrum
+    
+    # get header
+    fs = glob.glob('%s/Spectra/%s_*.dat'%(path2exotransmit, prefix))
+    f = open(fs[0], 'r')
+    g = f.readlines()
+    f.close()
+    hdr = ''.join(g[:2])[:-1]
+    return wl, spectrum, hdr

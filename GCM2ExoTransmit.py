@@ -52,6 +52,8 @@ def main(t=39, outname='GCMtidallylocked'):
     # compute the mass-coefficient for each column
     mass = np.sum(mass, 0)
     coeffs = mass / mass.sum()
+    hdu = fits.PrimaryHDU(coeffs)
+    hdu.writeto('coefficients.fits', overwrite=True)
     ##coeffs = _get_masscoeff_grid(P, Ps, T, depth, lat, lon, t)
     
     # compute the master transmission spectrum

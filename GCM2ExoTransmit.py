@@ -4,8 +4,7 @@ import create_exotransmit as exo
 
 global mp, kb, rp, g, Rs
 mp, kb = 1.6726219e-27, 1.38064852e-23
-rp, g = 1., 9.8
-Rs = .2
+rp, g, Rs = 1., 9.8, .2
 
 
 def main(t=39):
@@ -31,17 +30,17 @@ def main(t=39):
 
     # setup and run exotransit from each vertical column
     _,_, Nlat, Nlon = T.shape
+    clean, t = True, int(t)
     for i in range(Nlat):
         for j in range(Nlon):
             
             # check that transmission occurs through this column
             if _is_transmission(lat[i], lon[j], depth[time==t,:,i,j].max()):
 
-                _setup_exotransmit(t, lat[i], lon[j],
-                                   outfile='output_%i_%i.dat'%(i,j))
-                clean = True if (i==0) & (j==0) else False
+                _setup_exotransmit(t, i, j, outfile='output_%i_%i.dat'%(i,j))
                 _run_exotransmit(clean)
-
+                clean = False
+                
     # compute the mass-coefficient map
     coeffs = _get_masscoeff_grid(P, Ps, T, depth, lat, lon, time==t)
     
@@ -51,7 +50,7 @@ def main(t=39):
     
 
 
-def _setup_exotransmit(t, latitude, longitude, outfile='default.dat'):
+def _setup_exotransmit(tindex, latindex, lonindex, outfile='default.dat'):
     '''
     Setup ExoTransmit files to compute the transmission spectrum for a single 
     vertical column from the GCM.
@@ -67,18 +66,14 @@ def _setup_exotransmit(t, latitude, longitude, outfile='default.dat'):
 
     '''
     # get GCM data
-    time, lon, lat, h, Ps, P, T, X_H2O = _get_GCM_data(
-        'plasim_samples/TIDAL1.0.001.nc')
+    _,_,_,_,_, P, T, X_H2O = _get_GCM_data('plasim_samples/TIDAL1.0.001.nc')
     Ntime, Nh, Nlat, Nlon = T.shape
 
     # create exotransmit EOS file for this column
-    tindex    = time == t
-    lattindex = lat == latitude
-    lonindex  = lon == longitude
     exo.setup_Earthlike_EOS(P, X_H2O[tindex,:,latindex,lonindex])
 
     # create exotransmit TP profile for this column
-    exo.setup_TP_file(P, T[tindex,:,latindex,longindex])
+    exo.setup_TP_file(P, T[tindex,:,latindex,lonindex])
 
     # create exotransmit input files
     exo.create_input_file(g, rp, Rs, outfile)
@@ -92,7 +87,7 @@ def _run_exotransmit(clean=False):
     if clean:
         os.system('make clean')
         os.system('make')
-    os.system('./Exo_Transmit')            
+    os.system('./Exo_Transmit')
 
 
 def _get_GCM_data(fname):
@@ -104,7 +99,7 @@ def _get_GCM_data(fname):
     time, lon, lat, lev = data['time'][:], data['lon'][:], data['lat'][:], \
                           data['lev'][:]
     T, Ps, X_H2O = data['ta'][:], data['ps'][:], data['hus'][:]
-    P, Ps = lev*10, Ps*10  # hPa to Pa 
+    P, Ps = lev*10, Ps*10  # hPa to Pa
     h = _P2h(P, Ps, T)
     return time, lon, lat, h, Ps, P, T, X_H2O
 

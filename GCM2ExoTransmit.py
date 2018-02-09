@@ -46,7 +46,9 @@ def main(t=39):
     coeffs = _get_masscoeff_grid(P, Ps, T, depth, lat, lon, time==t)
     
     # compute the master transmission spectrum
-
+    # ie: send rays at fixed (y,z) and add up the mass weighted transmission
+    # spectra
+    
 
 
 def _setup_exotransmit(t, latitude, longitude, outfile='default.dat'):

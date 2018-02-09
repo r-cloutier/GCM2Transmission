@@ -3,7 +3,7 @@ import rvs
 
 global path2exotransmit, EOSfile, TPfile, userfile, chemfile
 EOSfile, TPfile, userfile, chemfile = 'eos_GCM.dat', 't_p_GCM.dat', \
-                                      'userInput_GCM.in', 'selectChem_GCM.in'
+                                      'userInput.in', 'selectChem.in'
 path2exotransmit = '/Users/ryancloutier/Research/Exo_Transmit'
 
 
@@ -152,7 +152,7 @@ def create_input_file(g, rp, Rs, outfile='GCM.dat'):
 
     '''
     # get template
-    fname = '%s/userInput.in'%path2exotransmit
+    fname = '%s/userInput_template.in'%path2exotransmit
     f = open(fname, 'r')
     h = f.readlines()
     f.close()
@@ -176,7 +176,7 @@ def create_chem_file():
     Create ExoTransmit chemical file.
     '''
     # get template
-    fname = '%s/selectChem.in'%path2exotransmit
+    fname = '%s/selectChem_template.in'%path2exotransmit
     f = open(fname, 'r')
     g = f.readlines()
     f.close()

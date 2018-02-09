@@ -2,9 +2,12 @@ from imports import *
 import rvs
 import create_exotransmit as exo
 
-global mp, kb, rp, g, Rs
+global mp, kb, rp, g, Rs, path2exotransmit, path2plasim
 mp, kb = 1.6726219e-27, 1.38064852e-23
 rp, g, Rs = 1., 9.8, .2
+path2exotransmit = '/Users/ryancloutier/Research/Exo_Transmit'
+path2plasim = '/Users/ryancloutier/Research/PlaSim'
+prefix = 'output'
 
 
 def main(t=39):
@@ -20,8 +23,8 @@ def main(t=39):
 
     '''
     # get GCM data
-    time, lon, lat, _, Ps, P, T,_ = _get_GCM_data(
-        'plasim_samples/TIDAL1.0.001.nc')
+    time, lon, lat, _, Ps, P, T,_ = \
+                            _get_GCM_data('plasim_samples/TIDAL1.0.001.nc')
     if t not in time:
         raise ValueError('t not in GCM time array.')
 
@@ -29,26 +32,34 @@ def main(t=39):
     depth = _P2h(P, Ps, T)
 
     # setup and run exotransit from each vertical column
-    _,_, Nlat, Nlon = T.shape
+    _, Nh, Nlat, Nlon = T.shape
     clean, t = True, int(t)
-    for i in range(Nlat):
-        for j in range(Nlon):
+    mass = np.zeros((Nh-1, Nlat-1, Nlon-1))
+    for i in range(Nlat-1):
+        for j in range(Nlon-1):
             
             # check that transmission occurs through this column
             if _is_transmission(lat[i], lon[j], depth[time==t,:,i,j].max()):
 
-                _setup_exotransmit(t, i, j, outfile='output_%i_%i.dat'%(i,j))
+                # get column mass for weighting coefficients
+                mass[:,i,j] = _get_mass(P, T, depth, lat, lon, t, i, j)
+
+                # compute transmission spectrum
+                _setup_exotransmit(t, i, j, outfile='%s_%i_%i.dat'%(prefix,i,j))
                 _run_exotransmit(clean)
                 clean = False
                 
-    # compute the mass-coefficient map
-    coeffs = _get_masscoeff_grid(P, Ps, T, depth, lat, lon, time==t)
+    # compute the mass-coefficient for each column
+    mass = np.sum(mass, 0)
+    coeffs = mass / mass.sum()
+    ##coeffs = _get_masscoeff_grid(P, Ps, T, depth, lat, lon, t)
     
     # compute the master transmission spectrum
     # ie: send rays at fixed (y,z) and add up the mass weighted transmission
     # spectra
+    ##wl, spectrum = _coadd_spectra(coeffs)
+    ##return wl, spectrum
     
-
 
 def _setup_exotransmit(tindex, latindex, lonindex, outfile='default.dat'):
     '''
@@ -84,11 +95,13 @@ def _run_exotransmit(clean=False):
     '''
     Compute the transmission spectrum using ExoTransmit.
     '''
+    os.chdir(path2exotransmit)
     if clean:
         os.system('make clean')
         os.system('make')
     os.system('./Exo_Transmit')
-
+    os.chdir(path2plasim)
+    
 
 def _get_GCM_data(fname):
     '''
@@ -159,6 +172,14 @@ def _geo2sphere(lat, lon):
     return phi, theta
 
 
+def _geo2cart(r, lat, lon):
+    phi, theta = _geo2sphere(lat, lon)
+    x = r*np.cos(phi)*np.sin(theta)
+    y = r*np.sin(phi)*np.sin(theta)
+    z = r*np.cos(theta)
+    return x, y, z
+
+
 def _sphere2cart2D(r, theta):
     '''
     Convert radial/azimuthal coordinates to cartesian x,y.
@@ -194,7 +215,31 @@ def _cart2sphere3D(x, y, z):
     theta = np.arccos(z / r)
     phi   = np.arctan(y / x)
     return r, phi, theta
+
+
+def _get_3d_cartesian_map(depth, lon, lat, tindex):
+    depth3d = np.mean(np.array([depth[tindex,:-1,:-1,:-1],
+                                depth[tindex,1:,1:,1:]]), 0)
+    Nh, Nlat, Nlon = depth3d.shape
+    latcell = np.mean(np.array([lat[:-1],  lat[1:]]), 0)
+    loncell = np.mean(np.array([lon[:-1],  lon[1:]]), 0)
+    lon3d = np.stack([np.stack([loncell for i in range(Nlat)])
+                      for i in range(Nh)])
+    lat3d = np.stack([np.stack([latcell for i in range(Nlon)]).T
+                      for i in range(Nh)])
+
+    # convert to spherical coords
+    r = rp + depth3d
+    phi = np.deg2rad(lon3d)
+    theta = np.deg2rad(90. - lat3d)
+
+    # get cartesian map
+    x = r*np.cos(phi)*np.sin(theta)
+    y = r*np.sin(phi)*np.sin(theta)
+    z = r*np.cos(theta)
+    return x, y, z
     
+
 
 def _get_masscoeff_grid_FAIL(tindex, Ps, P):
     '''
@@ -211,7 +256,19 @@ def _get_masscoeff_grid_FAIL(tindex, Ps, P):
     return dP/g
 
 
-def _get_masscoeff_grid(P, Ps, T, depth, lat, lon, tindex, N=1e8):
+def _get_mass(P, T, depth, lat, lon, t, i, j, folder='VolumeCalculations'):
+    Pcell = P[:-1] - P[1:]
+    Tcell = T[t,:-1,i,j] - T[t,1:,i,j]
+    rhocell = Pcell / Tcell
+    x1, y1, z1  = _geo2cart(depth[t,:-1,i,j]-depth[t,1:,i,j],
+                            lat[i+1], lon[j+1])
+    x2, y2, z2  = _geo2cart(depth[t,:-1,i+1,j+1]-depth[t,1:,i+1,j+1],
+                            lat[i+1], lon[j+1])
+    Vcell = abs(x1-x2) * abs(y1-y2) * abs(z1-z2)
+    return rhocell * Vcell
+
+    
+def _get_masscoeff_grid(P, Ps, T, depth, lat, lon, tindex, N=1e7):
     '''
     Compute the grid of unnormalized cell masses assuming an ideal gas and 
     renormalizing to get the mass-weighted coefficients as a function of lat, 
@@ -219,12 +276,16 @@ def _get_masscoeff_grid(P, Ps, T, depth, lat, lon, tindex, N=1e8):
     '''
     Ntime, Nh, Nlat, Nlon = T.shape
     assert P.size == Nh
-    P3d = np.stack([np.stack([P for i in range(Nlat)], 0)
-                    for i in range(Nlon)], 0).T
-
+    Pcell = np.array([np.mean([P[i], P[i+1]]) for i in range(P.size-1)])
+    P3d = np.stack([np.stack([Pcell for i in range(Nlat-1)], 0)
+                    for i in range(Nlon-1)], 0).T
+    T3d = np.mean(np.array([T[tindex,:-1,:-1,:-1], T[tindex,1:,1:,1:]]), 0)
+    assert T3d.shape == P3d.shape
+    
     # compute cell masses modolo a constant
-    rho3d = P3d / T[tindex]
-    V3d = _compute_cell_volumes(depth, lat, lon, N)
+    rho3d = P3d / T3d
+    #V3d = _compute_cell_volumes(depth, lat, lon, tindex, N)
+    V3d = _read_cell_volumes(depth)
     mass3d = rho3d * V3d
 
     # compute mass-weighted coefficients
@@ -232,28 +293,37 @@ def _get_masscoeff_grid(P, Ps, T, depth, lat, lon, tindex, N=1e8):
     return coeffs
 
 
-def _compute_cell_volumes(depth, lat, lon, N=1e8):
+def _read_cell_volumes(depth, folder='VolumeCalculations'):
+    Ntime, Nh, Nlat, Nlon = depth.shape
+    V3d = np.zeros((Nh-1, Nlat-1, Nlon-1))
+    for i in range(Nh-1):
+        d = fits.open('%s/V3d_TIDAL1.0.001.nc_depth%.2d'%(folder, i))[0].data
+        V3d[i] = d.reshape(Nlat-1, Nlon-1)
+    return V3d
+
+
+def _compute_cell_volumes(depth, lat, lon, tindex, N=1e7):
     '''
     Compute the 3D spatial map of cell volumes.
     '''
-    Nh, Nlat, Nlon = depth.shape
+    Ntime, Nh, Nlat, Nlon = depth.shape
     assert lat.size == Nlat
     assert lon.size == Nlon
 
     V3d = np.zeros((Nh-1, Nlat-1, Nlon-1))
     for i in range(Nh-1):
+        print i / (Nh-1.)
         for j in range(Nlat-1):
             for k in range(Nlon-1):
-                print i,j,k
-                cell_bnds1 = depth[i,j,k], lat[j], lon[k]
-                cell_bnds2 = depth[i+1,j+1,k+1], lat[j+1], lon[k+1]       
+                cell_bnds1 = depth[tindex,i,j,k], lat[j], lon[k]
+                cell_bnds2 = depth[tindex,i+1,j+1,k+1], lat[j+1], lon[k+1]
                 V3d[i,j,k] = _compute_cell_V(cell_bnds1, cell_bnds2,
                                              depth.max(), N)
 
     return V3d
 
 
-def _compute_cell_V(cell_bnds1, cell_bnds2, H, N=1e8):
+def _compute_cell_V(cell_bnds1, cell_bnds2, H, N=1e7):
     '''
     Compute the approximate cell volume by drawing spherical coordinates 
     within the planet's atmosphere (of known volume) and computing the fraction
@@ -261,11 +331,12 @@ def _compute_cell_V(cell_bnds1, cell_bnds2, H, N=1e8):
     latitudes, and longitudes. 
     '''    
     # get total atmosphere volume
+    assert rp > H
     V = 4*np.pi/3 * ((rp+H)**3 - rp**3)
 
     # draw random locations in the atmosphere
     N = int(N)
-    hs   = np.random.uniform(rp, rp+H, N)
+    hs   = np.random.uniform(0, H, N)
     lats = np.random.uniform(-90, 90, N)
     lons = np.random.uniform(0, 360, N)
 
@@ -279,5 +350,30 @@ def _compute_cell_V(cell_bnds1, cell_bnds2, H, N=1e8):
     in_cell = (hs >= hcell.min()) & (hs <= hcell.max()) & \
               (lats >= latcell.min()) & (lats <= latcell.max()) & \
               (lons >= loncell.min()) & (lons <= loncell.max())
-    Vcell = V * in_cell.sum() / in_cell.size
+    Vcell = V * in_cell.sum() / float(N)
     return Vcell
+
+
+def _coadd_spectra(coeffs):
+    '''Get the GCM spectra and compute the weighted mean.'''
+    # initialize spectrum array
+    wl, spectrum = np.loadtxt(fs[0], skiprows=2).T
+    spectrum = np.zeros(spectrum.size)
+
+    # normalize coefficients
+    coeffs = coeffs / coeffs.sum()
+    
+    # coadd mass-weighted spectra
+    Nlat, Nlon = coeffs.shape
+    nspectra = 0.
+    for i in range(Nlat):
+        for j in range(Nlon):
+            try:
+                _,spec = np.loadtxt('%s/Spectra/%s_%i_%i.dat'%(path2exotransmit,
+                                                               prefix, i, j),
+                                    skiprows=2).T
+                spectrum += coeffs[i,j] * spec
+            except IOError:
+                pass
+
+    return spectrum

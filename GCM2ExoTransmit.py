@@ -361,6 +361,7 @@ def _compute_cell_V(cell_bnds1, cell_bnds2, H, N=1e7):
 def _coadd_spectra(coeffs):
     '''Get the GCM spectra and compute the weighted mean.'''
     # initialize spectrum array
+    fs = glob.glob('%s/Spectra/%s*'%(path2exotransmit, prefix))
     wl, spectrum = np.loadtxt(fs[0], skiprows=2).T
     spectrum = np.zeros(spectrum.size)
 

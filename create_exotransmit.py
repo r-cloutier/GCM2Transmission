@@ -164,6 +164,8 @@ def create_input_file(g, rp, Rs, outfile='GCM.dat'):
     h[11] = '%.2f\n'%g
     h[13] = '%.2e\n'%rvs.Rearth2m(rp)
     h[15] = '%.2e\n'%rvs.Rsun2m(Rs)
+    h[17] = '0.0\n'
+    h[19] = '1.0\n'
 
     # write file
     f = open('%s/%s'%(path2exotransmit, userfile), 'w')

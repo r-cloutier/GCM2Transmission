@@ -10,7 +10,7 @@ path2plasim = '/Users/ryancloutier/Research/PlaSim'
 prefix = 'output'
 
 
-def main(t=39, outname='GCMtidallylocked'):
+def main(simname, t=39, outname='GCMtidallylocked'):
     '''
     Compute the transmission spectrum from a GCM by setting up and running 
     ExoTransmit for each vertical atmospheric column in the GCM and combining 
@@ -24,7 +24,7 @@ def main(t=39, outname='GCMtidallylocked'):
     '''
     # get GCM data
     time, lon, lat, _, Ps, P, T,_ = \
-                            _get_GCM_data('plasim_samples/TIDAL1.0.001.nc')
+                            _get_GCM_data('plasim_samples/%s.nc'%simname)
     if t not in time:
         raise ValueError('t not in GCM time array.')
 
@@ -45,7 +45,8 @@ def main(t=39, outname='GCMtidallylocked'):
                 mass[:,i,j] = _get_mass(P, T, depth, lat, lon, t, i, j)
 
                 # compute transmission spectrum
-                _setup_exotransmit(t, i, j, outfile='%s_%i_%i.dat'%(prefix,i,j))
+                _setup_exotransmit(simname, t, i, j,
+                                   outfile='%s_%i_%i.dat'%(simname,i,j))
                 _run_exotransmit(clean)
                 clean = False
                 
@@ -53,7 +54,7 @@ def main(t=39, outname='GCMtidallylocked'):
     mass = np.sum(mass, 0)
     coeffs = mass / mass.sum()
     hdu = fits.PrimaryHDU(coeffs)
-    hdu.writeto('coefficients.fits', overwrite=True)
+    hdu.writeto('coefficients_%s.fits'%simname, overwrite=True)
     ##coeffs = _get_masscoeff_grid(P, Ps, T, depth, lat, lon, t)
     
     # compute the master transmission spectrum
@@ -66,7 +67,8 @@ def main(t=39, outname='GCMtidallylocked'):
 
     
 
-def _setup_exotransmit(tindex, latindex, lonindex, outfile='default.dat'):
+def _setup_exotransmit(simname, tindex, latindex, lonindex,
+                       outfile='default.dat'):
     '''
     Setup ExoTransmit files to compute the transmission spectrum for a single 
     vertical column from the GCM.
@@ -82,7 +84,7 @@ def _setup_exotransmit(tindex, latindex, lonindex, outfile='default.dat'):
 
     '''
     # get GCM data
-    _,_,_,_,_, P, T, X_H2O = _get_GCM_data('plasim_samples/TIDAL1.0.001.nc')
+    _,_,_,_,_, P, T, X_H2O = _get_GCM_data('plasim_samples/%s.nc'%simname)
     Ntime, Nh, Nlat, Nlon = T.shape
 
     # create exotransmit EOS file for this column

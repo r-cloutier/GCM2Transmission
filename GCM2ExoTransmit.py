@@ -39,11 +39,13 @@ def main(simname, t=39, outname='GCMtidallylocked'):
         for j in range(Nlon-1):
             
             # check that transmission occurs through this column
-            if _is_transmission(lat[i], lon[j], depth[time==t,:,i,j].max()):
-
+            #if _is_transmission(lat[i], lon[j], depth[time==t,:,i,j].max()):
+            if _at_terminator(lat[i], lon[j]):
+            
                 # get column mass for weighting coefficients
-                mass[:,i,j] = _get_mass(P, T, depth, lat, lon, t, i, j)
-
+                #mass[:,i,j] = _get_mass(P, T, depth, lat, lon, t, i, j)
+                mass[:,i,j] = 1.
+                
                 # compute transmission spectrum
                 _setup_exotransmit(simname, t, i, j,
                                    outfile='%s_%i_%i.dat'%(simname,i,j))
@@ -55,7 +57,6 @@ def main(simname, t=39, outname='GCMtidallylocked'):
     coeffs = mass / mass.sum()
     hdu = fits.PrimaryHDU(coeffs)
     hdu.writeto('coefficients_%s.fits'%simname, overwrite=True)
-    ##coeffs = _get_masscoeff_grid(P, Ps, T, depth, lat, lon, t)
     
     # compute the master transmission spectrum
     # ie: send rays at fixed (y,z) and add up the mass weighted transmission
@@ -142,6 +143,15 @@ def _is_transmission(lat, lon, H):
     phi, theta = _geo2sphere(lat, lon)
     y, z = _sphere2yz(rp+H, phi, theta)
     return np.sqrt(y*y + z*z) > rp
+
+
+def _at_terminator(lat, lon):
+    '''
+    Check if this column is at the terminator (i.e. x=0)
+    '''
+    phi, theta = _geo2sphere(lat, lon)
+    x = np.sin(theta)*np.cos(phi)
+    return np.isclose(x, 0, atol=1e-4)
     
     
 def _P2h(P, Ps, T, mu=28.97):

@@ -7,7 +7,6 @@ mp, kb = 1.6726219e-27, 1.38064852e-23
 rp, g, Rs = 1., 9.8, .2
 path2exotransmit = '/Users/ryancloutier/Research/Exo_Transmit'
 path2plasim = '/Users/ryancloutier/Research/PlaSim'
-prefix = 'output'
 
 
 def main(simname, t=39, outname='GCMtidallylocked'):
@@ -61,7 +60,7 @@ def main(simname, t=39, outname='GCMtidallylocked'):
     # compute the master transmission spectrum
     # ie: send rays at fixed (y,z) and add up the mass weighted transmission
     # spectra
-    wl, spectrum, hdr = _coadd_spectra(coeffs)
+    wl, spectrum, hdr = _coadd_spectra(coeffs, simname)
     np.savetxt('%s/Spectra/%s'%(path2exotransmit, outname),
                np.array([wl, spectrum]).T, fmt='%.6e', delimiter='\t',
                header=hdr)
@@ -370,7 +369,7 @@ def _compute_cell_V(cell_bnds1, cell_bnds2, H, N=1e7):
     return Vcell
 
 
-def _coadd_spectra(coeffs):
+def _coadd_spectra(coeffs, prefix):
     '''Get the GCM spectra and compute the weighted mean.'''
     # initialize spectrum array
     fs = glob.glob('%s/Spectra/%s*'%(path2exotransmit, prefix))

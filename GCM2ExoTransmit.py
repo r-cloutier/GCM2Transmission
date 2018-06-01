@@ -47,9 +47,9 @@ def main(simname, t=39, outpathprefix='GCM/terminator', outfile='GCMtidallylocke
                 mass[:,i,j] = 1.
                 
                 # compute transmission spectrum
-		outpath = '%s/%s'%(outpathprefix, simname)
+		outpath = '%s/%s'%(outpathprefix, outfile.replace('.dat',''))
                 _setup_exotransmit(simname, t, i, j,
-                                   outfile='%s/%s_%i_%i.dat'%(outpath,simname,i,j))
+                                   outfile='%s/%s_%i_%i.dat'%(outpath,outfile.replace('.dat',''),i,j))
                 _run_exotransmit(clean)
                 clean = False
                 
@@ -395,7 +395,6 @@ def _coadd_spectra(coeffs, prefix):
     nspectra = 0.
     for i in range(Nlat):
         for j in range(Nlon):
-	    print i,j
             try:
                 _,spec = np.loadtxt('%s/Spectra/%s_%i_%i.dat'%(path2exotransmit,
                                                                prefix, i, j),

@@ -144,7 +144,7 @@ def setup_TP_file(Parr, Tarr):
     f.close()
 
 
-def create_input_file(g, rp, Rs, cloudP, outfile='GCM.dat'):
+def create_input_file(g, rp, Rs, cloudP, outfile='GCM/terminator/GCM.dat'):
     '''
     Create ExoTransmit input file.
 
@@ -162,6 +162,15 @@ def create_input_file(g, rp, Rs, cloudP, outfile='GCM.dat'):
 	Pressure level of the grey cloud deck in Pascals
 
     '''
+    # create subdirectories if necessary
+    dirs = outfile.split('/')[:-1]
+    for i in range(len(dirs)):
+	try:
+	    dirr = '/'.join(dirs[:i+1])
+	    os.mkdir('%s/Spectra/%s'%(path2exotransmit,dirr)
+	except OSError:
+	    pass
+
     # get template
     fname = '%s/userInput_template.in'%path2exotransmit
     f = open(fname, 'r')

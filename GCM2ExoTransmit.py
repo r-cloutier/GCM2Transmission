@@ -9,7 +9,7 @@ path2exotransmit = '/Users/ryancloutier/Research/Exo_Transmit'
 path2plasim = '/Users/ryancloutier/Research/PlaSim'
 
 
-def main(simname, t=39, outname='GCMtidallylocked'):
+def main(simname, t=39, outpathprefix='GCM/terminator', outfile='GCMtidallylocked.dat'):
     '''
     Compute the transmission spectrum from a GCM by setting up and running 
     ExoTransmit for each vertical atmospheric column in the GCM and combining 
@@ -46,9 +46,11 @@ def main(simname, t=39, outname='GCMtidallylocked'):
                 mass[:,i,j] = 1.
                 
                 # compute transmission spectrum
+		outpath = '%s/%s'%(outpathprefix, simname)
                 _setup_exotransmit(simname, t, i, j,
-                                   outfile='%s_%i_%i.dat'%(simname,i,j))
+                                   outfile='%s/%s_%i_%i.dat'%(outpath,simname,i,j))
                 _run_exotransmit(clean)
+		sys.exit('stop')
                 clean = False
                 
     # compute the mass-coefficient for each column
@@ -60,8 +62,8 @@ def main(simname, t=39, outname='GCMtidallylocked'):
     # compute the master transmission spectrum
     # ie: send rays at fixed (y,z) and add up the mass weighted transmission
     # spectra
-    wl, spectrum, hdr = _coadd_spectra(coeffs, simname)
-    np.savetxt('%s/Spectra/%s'%(path2exotransmit, outname),
+    wl, spectrum, hdr = _coadd_spectra(coeffs, '%s/%s'%(outpath, simname))
+    np.savetxt('%s/Spectra/%s'%(path2exotransmit, masteroutpath),
                np.array([wl, spectrum]).T, fmt='%.6e', delimiter='\t',
                header=hdr)
 

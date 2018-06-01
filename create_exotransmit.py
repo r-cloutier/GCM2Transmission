@@ -167,7 +167,7 @@ def create_input_file(g, rp, Rs, cloudP, outfile='GCM/terminator/GCM.dat'):
     for i in range(len(dirs)):
 	try:
 	    dirr = '/'.join(dirs[:i+1])
-	    os.mkdir('%s/Spectra/%s'%(path2exotransmit,dirr)
+	    os.mkdir('%s/Spectra/%s'%(path2exotransmit,dirr))
 	except OSError:
 	    pass
 

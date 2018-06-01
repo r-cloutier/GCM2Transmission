@@ -9,6 +9,7 @@ path2exotransmit = '/Users/ryancloutier/Research/Exo_Transmit'
 path2plasim = '/Users/ryancloutier/Research/PlaSim'
 
 
+#main('TIDAL1.0.001', outpathprefix='GCM/terminator', outfile='Tidallylocked.dat')
 def main(simname, t=39, outpathprefix='GCM/terminator', outfile='GCMtidallylocked.dat'):
     '''
     Compute the transmission spectrum from a GCM by setting up and running 
@@ -50,7 +51,6 @@ def main(simname, t=39, outpathprefix='GCM/terminator', outfile='GCMtidallylocke
                 _setup_exotransmit(simname, t, i, j,
                                    outfile='%s/%s_%i_%i.dat'%(outpath,simname,i,j))
                 _run_exotransmit(clean)
-		sys.exit('stop')
                 clean = False
                 
     # compute the mass-coefficient for each column
@@ -63,7 +63,7 @@ def main(simname, t=39, outpathprefix='GCM/terminator', outfile='GCMtidallylocke
     # ie: send rays at fixed (y,z) and add up the mass weighted transmission
     # spectra
     wl, spectrum, hdr = _coadd_spectra(coeffs, '%s/%s'%(outpath, simname))
-    np.savetxt('%s/Spectra/%s'%(path2exotransmit, masteroutpath),
+    np.savetxt('%s/Spectra/%s/%s'%(path2exotransmit, outpath, outfile),
                np.array([wl, spectrum]).T, fmt='%.6e', delimiter='\t',
                header=hdr)
 
@@ -100,7 +100,7 @@ def _setup_exotransmit(simname, tindex, latindex, lonindex,
 
     # get cloudtop pressure from the cloud-weighted-mean pressure 
     cloud_col = clouds[tindex,:,latindex,lonindex] + 0
-    cloud_col /= np.sum(cloud_col)
+    cloud_col = cloud_col/cloud_col.sum() if cloud_col.sum() > 0 else 0.
     cloudP = np.sum(P*cloud_col)
     
     # create exotransmit input files
@@ -383,7 +383,7 @@ def _compute_cell_V(cell_bnds1, cell_bnds2, H, N=1e7):
 def _coadd_spectra(coeffs, prefix):
     '''Get the GCM spectra and compute the weighted mean.'''
     # initialize spectrum array
-    fs = glob.glob('%s/Spectra/%s*'%(path2exotransmit, prefix))
+    fs = glob.glob('%s/Spectra/%s*.dat'%(path2exotransmit, prefix))
     wl, spectrum = np.loadtxt(fs[0], skiprows=2).T
     spectrum = np.zeros(spectrum.size)
 
@@ -395,10 +395,12 @@ def _coadd_spectra(coeffs, prefix):
     nspectra = 0.
     for i in range(Nlat):
         for j in range(Nlon):
+	    print i,j
             try:
                 _,spec = np.loadtxt('%s/Spectra/%s_%i_%i.dat'%(path2exotransmit,
                                                                prefix, i, j),
                                     skiprows=2).T
+		assert np.all(np.isfinite(spec))
                 spectrum += coeffs[i,j] * spec
             except IOError:
                 pass

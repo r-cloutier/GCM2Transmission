@@ -144,7 +144,7 @@ def setup_TP_file(Parr, Tarr):
     f.close()
 
 
-def create_input_file(g, rp, Rs, outfile='GCM.dat'):
+def create_input_file(g, rp, Rs, cloudP, outfile='GCM.dat'):
     '''
     Create ExoTransmit input file.
 
@@ -158,6 +158,8 @@ def create_input_file(g, rp, Rs, outfile='GCM.dat'):
         Planetary radius in Earth radii
     `Rs': scalar
         Stellar radius in Solar radii
+    `cloudP': scalar
+	Pressure level of the grey cloud deck in Pascals
 
     '''
     # get template
@@ -173,7 +175,7 @@ def create_input_file(g, rp, Rs, outfile='GCM.dat'):
     h[11] = '%.2f\n'%g
     h[13] = '%.2e\n'%rvs.Rearth2m(rp)
     h[15] = '%.2e\n'%rvs.Rsun2m(Rs)
-    h[17] = '0.0\n'
+    h[17] = '%.2e\n'%cloudP
     h[19] = '1.0\n'
 
     # write file

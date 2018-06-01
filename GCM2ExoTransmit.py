@@ -22,7 +22,7 @@ def main(simname, t=39, outname='GCMtidallylocked'):
 
     '''
     # get GCM data
-    time, lon, lat, _, Ps, P, T,_ = \
+    time, lon, lat, _, Ps, P, T,_,_ = \
                             _get_GCM_data('plasim_samples/%s.nc'%simname)
     if t not in time:
         raise ValueError('t not in GCM time array.')
@@ -84,20 +84,25 @@ def _setup_exotransmit(simname, tindex, latindex, lonindex,
 
     '''
     # get GCM data
-    _,_,_,_,_, P, T, X_H2O = _get_GCM_data('plasim_samples/%s.nc'%simname)
+    _,_,_,_,_,P,T,X_H2O,clouds = _get_GCM_data('plasim_samples/%s.nc'%simname)
     Ntime, Nh, Nlat, Nlon = T.shape
 
     # create exotransmit EOS file for this column
-    ##exo.setup_Earthlike_EOS(P, X_H2O[tindex,:,latindex,lonindex])
-    P_layer = 1e3
-    exo.setup_singlelayer_Earthlike_EOS(P, X_H2O[tindex,:,latindex,lonindex],
-                                        P_layer)
+    exo.setup_Earthlike_EOS(P, X_H2O[tindex,:,latindex,lonindex])
+    #P_layer = P[0]
+    #exo.setup_singlelayer_Earthlike_EOS(P, X_H2O[tindex,:,latindex,lonindex],
+    #                                    P_layer)
 
     # create exotransmit TP profile for this column
     exo.setup_TP_file(P, T[tindex,:,latindex,lonindex])
 
+    # get cloudtop pressure from the cloud-weighted-mean pressure 
+    cloud_col = clouds[tindex,:,latindex,lonindex] + 0
+    cloud_col /= np.sum(cloud_col)
+    cloudP = np.sum(P*cloud_col)
+    
     # create exotransmit input files
-    exo.create_input_file(g, rp, Rs, outfile)
+    exo.create_input_file(g, rp, Rs, cloudP, outfile)
     exo.create_chem_file()
 
     
@@ -122,9 +127,10 @@ def _get_GCM_data(fname):
     time, lon, lat, lev = data['time'][:], data['lon'][:], data['lat'][:], \
                           data['lev'][:]
     T, Ps, X_H2O = data['ta'][:], data['ps'][:], data['hus'][:]
+    clouds = data['cl'][:]
     P, Ps = lev*10, Ps*10  # hPa to Pa
     h = _P2h(P, Ps, T)
-    return time, lon, lat, h, Ps, P, T, X_H2O
+    return time, lon, lat, h, Ps, P, T, X_H2O, clouds
 
 
 def _is_transmission(lat, lon, H):

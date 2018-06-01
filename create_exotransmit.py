@@ -7,6 +7,15 @@ EOSfile, TPfile, userfile, chemfile = 'eos_GCM.dat', 't_p_GCM.dat', \
 path2exotransmit = '/Users/ryancloutier/Research/Exo_Transmit'
 
 
+def setup_singlelayer_Earthlike_EOS(Parr, X_H2Oarr, Player):
+    '''Create EOS files with water only at a single layer in the atmosphere instead 
+    of spanning multiple layers as in the GCM.'''
+    assert Parr.min() <= Player <= Parr.max()
+    assert Parr.size == X_H2Oarr.size
+    X_H2Oarr[abs(Parr - Player) != np.min(abs(Parr - Player))] = 0
+    setup_Earthlike_EOS(Parr, X_H2Oarr)
+                                    
+
 def setup_Earthlike_EOS(Parr, X_H2Oarr):
     '''
     Create a custom EOS file based on the approximate terrestrial atmospheric 
@@ -198,3 +207,6 @@ def create_chem_file():
     f = open('%s/%s'%(path2exotransmit, chemfile), 'w')
     f.write(''.join(h))
     f.close()
+
+
+    

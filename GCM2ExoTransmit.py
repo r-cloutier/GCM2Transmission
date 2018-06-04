@@ -102,7 +102,7 @@ def _setup_exotransmit(simname, tindex, latindex, lonindex,
     # get cloudtop pressure from the cloud-weighted-mean pressure 
     cloud_col = clouds[tindex,:,latindex,lonindex] + 0
     cloud_col = cloud_col/cloud_col.sum() if cloud_col.sum() > 0 else 0.
-    cloudP = 0.#np.sum(P*cloud_col)  # TEMP
+    cloudP = np.sum(P*cloud_col)
     
     # create exotransmit input files
     exo.create_input_file(g, rp, Rs, cloudP, outfile)

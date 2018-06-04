@@ -57,13 +57,14 @@ def main(simname, t=39, outpathprefix='GCM/terminator', outfile='GCMtidallylocke
     # compute the mass-coefficient for each column
     mass = np.sum(mass, 0)
     coeffs = mass / mass.sum()
+    assert coeffs.sum() == 1
     hdu = fits.PrimaryHDU(coeffs)
-    hdu.writeto('coefficients_%s.fits'%simname, overwrite=True)
+    hdu.writeto('%s/Spectra/%s/coefficients_%s.fits'%(path2exotransmit,outpath,simname[:-4]), overwrite=True)
     
     # compute the master transmission spectrum
     # ie: send rays at fixed (y,z) and add up the mass weighted transmission
     # spectra
-    wl, spectrum, hdr = _coadd_spectra(coeffs, '%s/%s'%(outpath, simname))
+    wl, spectrum, hdr = _coadd_spectra(coeffs, '%s/%s'%(outpath, outfile[:-4]))
     np.savetxt('%s/Spectra/%s/%s'%(path2exotransmit, outpath, outfile),
                np.array([wl, spectrum]).T, fmt='%.6e', delimiter='\t',
                header=hdr)
@@ -384,24 +385,33 @@ def _compute_cell_V(cell_bnds1, cell_bnds2, H, N=1e7):
 def _coadd_spectra(coeffs, prefix):
     '''Get the GCM spectra and compute the weighted mean.'''
     # initialize spectrum array
-    fs = glob.glob('%s/Spectra/%s*.dat'%(path2exotransmit, prefix))
+    fs = glob.glob('%s/Spectra/%s_*.dat'%(path2exotransmit, prefix))
     wl, spectrum = np.loadtxt(fs[0], skiprows=2).T
     spectrum = np.zeros(spectrum.size)
 
-    # normalize coefficients
-    coeffs = coeffs / coeffs.sum()
-    
-    # coadd mass-weighted spectra
+    # get coefficients only where a transmission spectru was calculated
     Nlat, Nlon = coeffs.shape
+    coeffsv2 = np.zeros_like(coeffs)
+    for i in range(Nlat):
+        for j in range(Nlon):
+	    fname = '%s/Spectra/%s_%i_%i.dat'%(path2exotransmit, prefix, i, j)
+	    try:
+		_,spec = np.loadtxt(fname, skiprows=2).T
+		coeffsv2[i,j] = coeffs[i,j]
+	    except IOError:
+		pass
+    coeffsv2 = coeffsv2 / coeffsv2.sum()
+    assert coeffsv2.sum() == 1    
+
+    # coadd mass-weighted spectra
     nspectra = 0.
     for i in range(Nlat):
         for j in range(Nlon):
-            try:
-                _,spec = np.loadtxt('%s/Spectra/%s_%i_%i.dat'%(path2exotransmit,
-                                                               prefix, i, j),
-                                    skiprows=2).T
+	    try:		
+		fname = '%s/Spectra/%s_%i_%i.dat'%(path2exotransmit, prefix, i, j)
+                _,spec = np.loadtxt(fname, skiprows=2).T
 		assert np.all(np.isfinite(spec))
-                spectrum += coeffs[i,j] * spec
+                spectrum += coeffsv2[i,j] * spec
             except IOError:
                 pass
     

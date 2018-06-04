@@ -22,7 +22,6 @@ def setup_Earthlike_EOS(Parr, X_H2Oarr):
     Create a custom EOS file based on the approximate terrestrial atmospheric 
     abundances and variable water content for a vertical column.
     '''
-    print 'here1'
     Parr, X_H2Oarr = np.ascontiguousarray(Parr), np.ascontiguousarray(X_H2Oarr)
     assert Parr.size == X_H2Oarr.size
 
@@ -58,7 +57,6 @@ def setup_Earthlike_EOS(Parr, X_H2Oarr):
             h.append(g[j])
 
     # write file
-    print 'here2'
     f = open('%s/EOS/%s'%(path2exotransmit, EOSfile), 'w')
     f.write(''.join(h))
     f.close()

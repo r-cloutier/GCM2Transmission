@@ -93,7 +93,7 @@ def _setup_exotransmit(simname, tindex, latindex, lonindex,
 
     # create exotransmit EOS file for this column
     #exo.setup_Earthlike_EOS(P, X_H2O[tindex,:,latindex,lonindex])
-    P_layer = P[0]
+    P_layer = P[9]
     exo.setup_singlelayer_Earthlike_EOS(P, X_H2O[tindex,:,latindex,lonindex],
                                         P_layer)
 

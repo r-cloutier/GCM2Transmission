@@ -204,7 +204,7 @@ def create_chem_file():
     g = f.readlines()
     f.close()
 
-    h, chems2keep = [], ['H2O']#['CH4','CO2','H2','H2O','He','N2','O2'] TEMP
+    h, chems2keep = [], ['CH4','CO2','H2','H2O','He','N2','O2']
     h.append(g[0])
     for i in range(1,len(g)-3):
         ls = np.ascontiguousarray(g[i].split(' '))

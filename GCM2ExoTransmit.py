@@ -92,10 +92,10 @@ def _setup_exotransmit(simname, tindex, latindex, lonindex,
     Ntime, Nh, Nlat, Nlon = T.shape
 
     # create exotransmit EOS file for this column
-    exo.setup_Earthlike_EOS(P, X_H2O[tindex,:,latindex,lonindex])
-    #P_layer = P[7]
-    #exo.setup_singlelayer_Earthlike_EOS(P, X_H2O[tindex,:,latindex,lonindex],
-    #                                    P_layer)
+    #exo.setup_Earthlike_EOS(P, X_H2O[tindex,:,latindex,lonindex])
+    P_layer = P[7]
+    exo.setup_singlelayer_Earthlike_EOS(P, X_H2O[tindex,:,latindex,lonindex],
+                                        P_layer)
 
     # create exotransmit TP profile for this column
     exo.setup_TP_file(P, T[tindex,:,latindex,lonindex])

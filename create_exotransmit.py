@@ -14,7 +14,7 @@ def setup_singlelayer_Earthlike_EOS(Parr, X_H2Oarr, Player):
     assert Parr.size == X_H2Oarr.size
     X_H2Oarrv2 = np.ones_like(X_H2Oarr) + X_H2Oarr
     X_H2Oarrv2[abs(Parr - Player) != np.min(abs(Parr - Player))] = 0
-    setup_Earthlike_EOS(Parr, X_H2Oarrv2)
+    return setup_Earthlike_EOS(Parr, X_H2Oarrv2)
                                     
 
 def setup_Earthlike_EOS(Parr, X_H2Oarr):
@@ -60,6 +60,8 @@ def setup_Earthlike_EOS(Parr, X_H2Oarr):
     f = open('%s/EOS/%s'%(path2exotransmit, EOSfile), 'w')
     f.write(''.join(h))
     f.close()
+
+    return X_H2Oarr # TEMP
 
 
 def _set_abundances(Xs, col_names, Parr, X_H2Oarr):

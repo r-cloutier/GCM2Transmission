@@ -24,7 +24,7 @@ def main(simname, t=39, outpathprefix='GCM/terminator', outfile='GCMtidallylocke
     '''
     # get GCM data
     time, lon, lat, _, Ps, P, T,_,_ = \
-                            _get_GCM_data('plasim_samples/%s.nc'%simname)
+                            get_GCM_data('plasim_samples/%s.nc'%simname)
     if t not in time:
         raise ValueError('t not in GCM time array.')
 
@@ -40,7 +40,7 @@ def main(simname, t=39, outpathprefix='GCM/terminator', outfile='GCMtidallylocke
             
             # check that transmission occurs through this column
             #if _is_transmission(lat[i], lon[j], depth[time==t,:,i,j].max()):
-            if _at_terminator(lat[i], lon[j]):
+            if at_terminator(lat[i], lon[j]):
             
                 # get column mass for weighting coefficients
                 #mass[:,i,j] = _get_mass(P, T, depth, lat, lon, t, i, j)
@@ -87,12 +87,13 @@ def _setup_exotransmit(simname, tindex, latindex, lonindex,
 
     '''
     # get GCM data
-    _,_,_,_,_,P,T,X_H2O,clouds = _get_GCM_data('plasim_samples/%s.nc'%simname)
+    _,_,_,_,_,P,T,X_H2O,clouds = get_GCM_data('plasim_samples/%s.nc'%simname)
     Ntime, Nh, Nlat, Nlon = T.shape
 
     # create exotransmit EOS file for this column
     #exo.setup_Earthlike_EOS(P, X_H2O[tindex,:,latindex,lonindex])
-    P_layer = P[9]
+    P_layer = P[1]
+    print P_layer
     exo.setup_singlelayer_Earthlike_EOS(P, X_H2O[tindex,:,latindex,lonindex],
                                         P_layer)
 
@@ -122,7 +123,7 @@ def _run_exotransmit(clean=False):
     os.chdir(path2plasim)
     
 
-def _get_GCM_data(fname):
+def get_GCM_data(fname):
     '''
     Read-in temporal, spatial, and thermodynamic variables from the netcdf 
     output of the GCM.
@@ -157,7 +158,7 @@ def _is_transmission(lat, lon, H):
     return np.sqrt(y*y + z*z) > rp
 
 
-def _at_terminator(lat, lon):
+def at_terminator(lat, lon):
     '''
     Check if this column is at the terminator (i.e. x=0)
     '''

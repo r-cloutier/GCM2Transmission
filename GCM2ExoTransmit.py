@@ -50,7 +50,6 @@ def main(simname, t=39, outpathprefix='GCM/terminator', outfile='GCMtidallylocke
 		outpath = '%s/%s'%(outpathprefix, outfile.replace('.dat',''))
                 _setup_exotransmit(simname, t, i, j,
                                    outfile='%s/%s_%i_%i.dat'%(outpath,outfile.replace('.dat',''),i,j))
-		sys.exit('stop')
                 _run_exotransmit(clean)
                 clean = False
                 
@@ -92,10 +91,10 @@ def _setup_exotransmit(simname, tindex, latindex, lonindex,
     Ntime, Nh, Nlat, Nlon = T.shape
 
     # create exotransmit EOS file for this column
-    exo.setup_Earthlike_EOS(P, X_H2O[tindex,:,latindex,lonindex])
-    #P_layer = P[8]
-    #exo.setup_singlelayer_Earthlike_EOS(P, X_H2O[tindex,:,latindex,lonindex],
-    #                                    P_layer)
+    #exo.setup_Earthlike_EOS(P, X_H2O[tindex,:,latindex,lonindex])
+    P_layer = P[9]
+    exo.setup_singlelayer_Earthlike_EOS(P, X_H2O[tindex,:,latindex,lonindex],
+                                        P_layer)
 
     # create exotransmit TP profile for this column
     exo.setup_TP_file(P, T[tindex,:,latindex,lonindex])
